@@ -98,6 +98,21 @@ class Gtalkbot extends Adapter
     return unless body
 
     message = body.getText()
+    
+    
+        
+    # Check if the message is from jaconda.im. If it is, we want to set the type to groupchat.
+    jaconda = false
+    if stanza.attrs.type is 'chat'
+      domain = stanza.attrs.from.split('@')
+      if domain.length is 2
+        domain = domain[1].split('/')
+        if domain[0] is 'jaconda.im'
+          jaconda = true
+    
+    if jaconda
+      username = message.split(':')
+      username = username[0]
 
     # If we've configured some regexp transformations, apply them on the message
     if @options.regexpTrans?
@@ -105,8 +120,9 @@ class Gtalkbot extends Adapter
       message = message.replace(new RegExp(reg), trans)
 
     # Pad the message with robot name just incase it was not provided.
-    # Only pad if this is a direct chat
-    if stanza.attrs.type is 'chat'
+    # Only pad if this is a direct chat and not Jaconda.im
+    
+    if stanza.attrs.type is 'chat' and not jaconda
       # Following the same name matching pattern as the Robot
       if @robot.alias
         alias = @robot.alias.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&') # escape alias for regexp
@@ -121,6 +137,7 @@ class Gtalkbot extends Adapter
     # Send the message to the robot
     user = @getUser jid
     user.type = stanza.attrs.type
+    user.real_username = username
 
     @receive new TextMessage(user, message)
 
@@ -178,7 +195,7 @@ class Gtalkbot extends Adapter
         @receive new LeaveMessage(user)
 
   getUser: (jid) ->
-    user = @userForId jid.from(),
+    user = @robot.brain.userForId jid.from(),
       name: jid.user
       user: jid.user
       domain: jid.domain
